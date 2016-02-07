@@ -1,5 +1,10 @@
 # swen331-fuzzer
 
+Project Information:
+
+Language: python 3
+External Libraries: Request
+
 Contact information:
 
 James De Ricco - jcd7042@rit.edu
