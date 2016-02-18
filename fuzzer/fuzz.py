@@ -48,12 +48,10 @@ def main(argv):
                 elif opt == 'common-words':
                     for line in open(arg):
                         common_words.append(line)
-            
-                
+
             if command == 'discover':
                 discover(initial_url, common_words)
-        
-            
+
     except getopt.GetoptError:
         print(helpStr)
 
@@ -74,16 +72,16 @@ def discover_links(initial_url, site, discovered_urls=set()):
     # import pdb; pdb.set_trace()
     if response.status_code == 200 and not response.url in discovered_urls:
         found_urls = {response.url}
-        
+
         for link in soup.find_all('a'):
             url = link.get('href')
             url_site = urlparse(url).netloc
             if not url == None and (url_site == site or url_site == ''):
                 found_urls.add(urljoin(response.url, url))
-            
+
         for url in found_urls:
             found_urls = found_urls.union(discover_links(url, site, discovered_urls.union({initial_url})))
-        
+
         return found_urls
     else:
         return set()
@@ -93,7 +91,6 @@ def discover_guess_links(base_url, common_words):
 
 def discover_print_inputs(link):
     pass
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])
