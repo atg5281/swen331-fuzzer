@@ -1,6 +1,7 @@
-import getopt
-import requests
 from bs4 import BeautifulSoup
+import getopt
+from functools import reduce
+import requests
 import sys
 from urllib.parse import urljoin, urlparse
 
@@ -30,8 +31,6 @@ def main(argv):
     argv -- the list of arguments
     """
     try:
-        command = ""
-        arguments = argv
         if argv[0] != 'discover' and argv[0] != 'test':
             raise getopt.GetoptError("")
         else:
@@ -42,54 +41,99 @@ def main(argv):
             initial_url = argv[1]
             common_words = []
 
+            session = requests.Session()
+
             for opt, arg in opts:
-                if opt == 'custom-auth-string':
-                    initial_url = authenticate(argv[1])
-                elif opt == 'common-words':
+                if opt == '--custom-auth-string':
+                    initial_url = authenticate(argv[1], session)
+                elif opt == '--common-words':
                     for line in open(arg):
                         common_words.append(line)
 
             if command == 'discover':
-                discover(initial_url, common_words)
+                discover(initial_url, common_words, session)
 
     except getopt.GetoptError:
         print(helpStr)
 
-def authenticate(url):
-    pass
 
-def discover(url, common_words):
-    links = discover_links(url, urlparse(url).netloc)
+def authenticate(url, session):
+    payload = {
+        "username": "admin",
+        "password": "password",
+        "Login": "Login"
+    }
+    r = session.post(url, data=payload, allow_redirects=True)
+    return r.url
+
+
+def discover(url, common_words, session):
+    links = discover_links(url, urlparse(url).netloc, session)
+    links += discover_guess_links(links, common_words, session)
     print(links)
+    discover_print_inputs(links, session)
 
-    for link in links:
-        discover_print_inputs(link)
 
-def discover_links(initial_url, site, discovered_urls=set()):
-    print('discover_links: ' + 'initial_url = ' + initial_url);
-    response = requests.get(initial_url)
+def discover_links(initial_url, site, session, discovered_urls=set()):
+    print('discover_links: ' + 'initial_url = ' + initial_url)
+    response = session.get(initial_url)
     soup = BeautifulSoup(response.content, 'html.parser')
     # import pdb; pdb.set_trace()
-    if response.status_code == 200 and not response.url in discovered_urls:
+    if response.status_code == 200 and response.url not in discovered_urls:
         found_urls = {response.url}
 
         for link in soup.find_all('a'):
             url = link.get('href')
             url_site = urlparse(url).netloc
-            if not url == None and (url_site == site or url_site == ''):
+            if url is not None and (url_site == site or url_site == ''):
                 found_urls.add(urljoin(response.url, url))
 
         for url in found_urls:
-            found_urls = found_urls.union(discover_links(url, site, discovered_urls.union({initial_url})))
+            found_urls = found_urls.union(discover_links(url, site, session, discovered_urls.union({initial_url})))
 
         return found_urls
     else:
         return set()
 
-def discover_guess_links(base_url, common_words):
-    return {}
 
-def discover_print_inputs(link):
+def discover_truncate_links(links):
+    truncated_links = set()
+    for link in links:
+        l = urlparse(link)
+        if l.path[-1] != "/":
+            dir_path_list = l.path.split('/')[:-1]
+            dir_path = reduce((lambda a, b: a + "/" + b), dir_path_list) + "/"
+            truncated_links.add(l.scheme + "://" + l.netloc + dir_path)
+        else:
+            truncated_links.add(link)
+
+    return truncated_links
+
+
+def discover_guess_links(links, common_words, session):
+    return filter((lambda link: test_link(link, session)), generate_links(links, common_words))
+
+
+def test_link(link, session):
+    r = session.get(link)
+    return r.status_code == 200
+
+
+def generate_links(links, common_words):
+    # TODO add more to this list
+    endings = ["php", "jsp", "html", "htm", "asp", "aspx"]
+    dir_paths = discover_truncate_links(links)
+    generated_links = set()
+
+    for dir_path in dir_paths:
+        for word in common_words:
+            for ending in endings:
+                generated_links.add(dir_path + word + ending)
+
+    return generated_links
+
+
+def discover_print_inputs(link, session):
     pass
 
 if __name__ == "__main__":
