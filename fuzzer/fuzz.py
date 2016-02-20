@@ -36,7 +36,7 @@ def main(argv):
         else:
             command = argv[0]
             arguments = argv[2:] if len(argv) > 1 else []
-            opts, args = getopt.getopt(arguments, "", ['custom-auth-string=', 'common-words=', 'vectors=', 'random=',
+            opts, args = getopt.getopt(arguments, "", ['custom-auth=', 'common-words=', 'vectors=', 'random=',
                                                        'slow='])
             initial_url = argv[1]
             common_words = []
@@ -44,7 +44,7 @@ def main(argv):
             session = requests.Session()
 
             for opt, arg in opts:
-                if opt == '--custom-auth-string':
+                if opt == '--custom-auth':
                     initial_url = authenticate(argv[1], session)
                 elif opt == '--common-words':
                     for line in open(arg):
@@ -68,16 +68,19 @@ def authenticate(url, session):
 
 
 def discover(url, common_words, session):
-    links = discover_links(url, urlparse(url).netloc, session)
-    links += discover_guess_links(links, common_words, session)
-    print(links)
+    links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session)
+    if common_words is not None:
+        links = links.union(set(discover_guess_links(links, common_words, session)))
     discover_print_inputs(links, session)
+    print(links)
+    print(form_inputs)
 
 
-def discover_links(initial_url, site, session, discovered_urls=set()):
+def discover_links_and_inputs(initial_url, site, session, discovered_urls=set(), form_inputs=dict()):
     print('discover_links: ' + 'initial_url = ' + initial_url)
     response = session.get(initial_url)
     soup = BeautifulSoup(response.content, 'html.parser')
+    form_inputs[initial_url] = discover_form_inputs(soup)
     # import pdb; pdb.set_trace()
     if response.status_code == 200 and response.url not in discovered_urls:
         found_urls = {response.url}
@@ -89,11 +92,14 @@ def discover_links(initial_url, site, session, discovered_urls=set()):
                 found_urls.add(urljoin(response.url, url))
 
         for url in found_urls:
-            found_urls = found_urls.union(discover_links(url, site, session, discovered_urls.union({initial_url})))
+            child_urls, child_inputs = discover_links_and_inputs(url, site, session, discovered_urls.union({initial_url}),
+                                                                 form_inputs)
+            found_urls = found_urls.union(child_urls)
+            form_inputs = dict(form_inputs, **child_inputs)
 
-        return found_urls
+        return found_urls, form_inputs
     else:
-        return set()
+        return set(), dict()
 
 
 def discover_truncate_links(links):
@@ -120,8 +126,9 @@ def test_link(link, session):
 
 
 def generate_links(links, common_words):
-    # TODO add more to this list
-    endings = ["php", "jsp", "html", "htm", "asp", "aspx"]
+    endings = ["php", "jsp", "html", "htm", "asp", "aspx", "axd", "asx", "asmx", "ashx", "aspx", "css", "cfm", "yaws",
+               "swf", "xhtml", "jhtml", "jspx", "wss", "do", "action", "js", "pl", "php4", "php3", "phtml", "py",
+               "rb", "rhtml", "xml", "rss", "svg", "cgi", "dll"]
     dir_paths = discover_truncate_links(links)
     generated_links = set()
 
@@ -131,6 +138,15 @@ def generate_links(links, common_words):
                 generated_links.add(dir_path + word + ending)
 
     return generated_links
+
+
+def discover_form_inputs(soup):
+    inputs = set()
+    for i in soup.find_all('input'):
+        if i.get('type') != 'submit' and i.get('type') != 'button':
+            #i.clear()
+            inputs.add(i)
+    return inputs
 
 
 def discover_print_inputs(link, session):
