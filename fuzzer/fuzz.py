@@ -58,13 +58,16 @@ def main(argv):
 
 
 def authenticate(url, session):
+    response = session.get(url)
+    soup = BeautifulSoup(response.content)
     payload = {
         "username": "admin",
         "password": "password",
-        "Login": "Login"
+        "Login": "Login",
+        "user_token": soup.find(lambda tag: tag.get('name') == 'user_token').get('value')
     }
-    r = session.post(url, data=payload, allow_redirects=True)
-    return r.url
+    login_submit_response = session.post(response.url, data=payload, allow_redirects=True)
+    return login_submit_response.url
 
 
 def discover(url, common_words, session):
