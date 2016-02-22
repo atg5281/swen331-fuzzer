@@ -107,12 +107,7 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
         for page_link in soup.find_all('a'):
             url = page_link.get('href')
             url_site = urlparse(url).netloc
-            if url is not None:
-                index = url.find("?")
-                if index != -1:
-                    sanitized_url = url[:index]
-                else:
-                    sanitized_url = url
+            sanitized_url = sanitize_url(url)
             if sanitized_url is not None and (url_site == site or url_site == ''):
                 page_links.add(urljoin(response.url, sanitized_url))
 
@@ -174,6 +169,14 @@ def discover_form_inputs(soup):
             temp.clear()
             inputs.add(temp)
     return inputs
+
+
+def sanitize_url(url):
+    if url is not None:
+        index = url.find("?")
+        if index != -1:
+            return url[:index]
+    return url
 
 
 if __name__ == "__main__":
