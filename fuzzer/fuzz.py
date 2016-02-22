@@ -64,8 +64,12 @@ def authenticate(url, session):
         "username": "admin",
         "password": "password",
         "Login": "Login",
-        "user_token": soup.find(lambda tag: tag.get('name') == 'user_token').get('value')
     }
+
+    user_token_tag = soup.find(lambda tag: tag.get('name') == 'user_token')
+    if user_token_tag is not None and user_token_tag.get('value') is not None:
+        payload["user_token"] = user_token_tag.get('value')
+    
     login_submit_response = session.post(response.url, data=payload, allow_redirects=True)
     return login_submit_response.url
 
