@@ -75,32 +75,39 @@ def discover(url, common_words, session):
     if common_words is not None:
         links = links.union(set(discover_guess_links(links, common_words, session)))
     discover_print_inputs(links, session)
+    print('Discovered ' + str(len(links)) + ' URLs:')
     print(links)
+    print()
+    print('Discovered ' + str(len(form_inputs)) + ' Form Inputs:')
     print(form_inputs)
 
 
-def discover_links_and_inputs(initial_url, site, session, discovered_urls=set(), form_inputs=dict()):
-    print('discover_links: ' + 'initial_url = ' + initial_url)
+def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict()):
+    if initial_url in visited_urls:
+        return set(), dict()
+    
     response = session.get(initial_url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    form_inputs[initial_url] = discover_form_inputs(soup)
-    # import pdb; pdb.set_trace()
-    if response.status_code == 200 and response.url not in discovered_urls:
-        found_urls = {response.url}
+    if response.status_code == 200 and not response.url in visited_urls:
+        discovered_links = {initial_url, response.url}
+        print('discover_links_and_inputs: Discovered ' + str(discovered_links))
 
-        for link in soup.find_all('a'):
-            url = link.get('href')
+        soup = BeautifulSoup(response.content, 'html.parser')
+        form_inputs[initial_url] = discover_form_inputs(soup)
+
+        page_links = set()
+
+        for page_link in soup.find_all('a'):
+            url = page_link.get('href')
             url_site = urlparse(url).netloc
             if url is not None and (url_site == site or url_site == ''):
-                found_urls.add(urljoin(response.url, url))
+                page_links.add(urljoin(response.url, url))
 
-        for url in found_urls:
-            child_urls, child_inputs = discover_links_and_inputs(url, site, session, discovered_urls.union({initial_url}),
-                                                                 form_inputs)
-            found_urls = found_urls.union(child_urls)
+        for page_link in page_links:
+            child_urls, child_inputs = discover_links_and_inputs(page_link, site, session, visited_urls=visited_urls.union(discovered_links), form_inputs=form_inputs)
+            discovered_links.update(child_urls)
             form_inputs = dict(form_inputs, **child_inputs)
 
-        return found_urls, form_inputs
+        return discovered_links, form_inputs
     else:
         return set(), dict()
 
