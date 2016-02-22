@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+import copy
 import getopt
 from functools import reduce
 import requests
@@ -69,7 +70,7 @@ def authenticate(url, session):
     user_token_tag = soup.find(lambda tag: tag.get('name') == 'user_token')
     if user_token_tag is not None and user_token_tag.get('value') is not None:
         payload["user_token"] = user_token_tag.get('value')
-    
+
     login_submit_response = session.post(response.url, data=payload, allow_redirects=True)
     return login_submit_response.url
 
@@ -78,8 +79,8 @@ def discover(url, common_words, session):
     links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session)
     if common_words is not None:
         links = links.union(set(discover_guess_links(links, common_words, session)))
-    discover_print_inputs(links, session)
     print('Discovered ' + str(len(links)) + ' URLs:')
+    links = list(map(sanitize_url, links))
     print(links)
     print()
     print('Discovered ' + str(len(form_inputs)) + ' Form Inputs:')
@@ -100,7 +101,6 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
 
     if response.url in visited_urls:
         return {initial_url}, dict()
-
     discovered_links = {initial_url, response.url}
     print('discover_links_and_inputs: Discovered ' + str(discovered_links))
 
@@ -164,14 +164,20 @@ def generate_links(links, common_words):
 def discover_form_inputs(soup):
     inputs = set()
     for i in soup.find_all('input'):
-        if i.get('type') != 'submit' and i.get('type') != 'button':
-            #i.clear()
-            inputs.add(i)
+        if i.get('type') != 'submit' and i.get('type') != 'button' and i is not None:
+            temp = copy.deepcopy(i)
+            temp.clear()
+            inputs.add(temp)
     return inputs
 
 
-def discover_print_inputs(link, session):
-    pass
+def sanitize_url(url):
+    if url is not None:
+        index = url.find("?")
+        if index != -1:
+            return url[:index]
+    return url
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
