@@ -41,42 +41,48 @@ def main(argv):
                                                        'slow='])
             initial_url = argv[1]
             common_words = []
+            ignore_urls = set()
 
             session = requests.Session()
 
             for opt, arg in opts:
                 if opt == '--custom-auth':
-                    initial_url = authenticate(argv[1], session)
+                    if arg == 'dvwa':
+                        initial_url = authenticate_dvwa(argv[1], session)
+                        logout_url = urljoin(initial_url, "logout.php")
+                        ignore_urls.add(logout_url)
                 elif opt == '--common-words':
                     for line in open(arg):
                         common_words.append(line)
 
             if command == 'discover':
-                discover(initial_url, common_words, session)
+                discover(initial_url, common_words, session, ignore_urls=ignore_urls)
 
     except getopt.GetoptError:
         print(helpStr)
 
-
-def authenticate(url, session):
-    response = session.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+def authenticate_dvwa(url, session):
     payload = {
         "username": "admin",
         "password": "password",
         "Login": "Login",
     }
 
+    response = session.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
     user_token_tag = soup.find(lambda tag: tag.get('name') == 'user_token')
     if user_token_tag is not None and user_token_tag.get('value') is not None:
         payload["user_token"] = user_token_tag.get('value')
 
-    login_submit_response = session.post(response.url, data=payload, allow_redirects=True)
+    return authenticate(response.url, session, payload)
+
+def authenticate(login_url, session, payload):
+    login_submit_response = session.post(login_url, data=payload, allow_redirects=True)
     return login_submit_response.url
 
 
-def discover(url, common_words, session):
-    links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session)
+def discover(url, common_words, session, ignore_urls=set()):
+    links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session, visited_urls=ignore_urls)
     if common_words is not None:
         links = links.union(set(discover_guess_links(links, common_words, session)))
     print('Discovered ' + str(len(links)) + ' URLs:')
