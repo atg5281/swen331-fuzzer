@@ -70,7 +70,7 @@ def authenticate(url, session):
     user_token_tag = soup.find(lambda tag: tag.get('name') == 'user_token')
     if user_token_tag is not None and user_token_tag.get('value') is not None:
         payload["user_token"] = user_token_tag.get('value')
-    
+
     login_submit_response = session.post(response.url, data=payload, allow_redirects=True)
     return login_submit_response.url
 
@@ -91,6 +91,7 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
         return set(), dict()
 
     response = session.get(initial_url)
+
     if response.status_code == 200 and response.url not in visited_urls:
         discovered_links = {initial_url, response.url}
         print('discover_links_and_inputs: Discovered ' + str(discovered_links))
@@ -106,11 +107,19 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
         for page_link in soup.find_all('a'):
             url = page_link.get('href')
             url_site = urlparse(url).netloc
-            if url is not None and (url_site == site or url_site == ''):
-                page_links.add(urljoin(response.url, url))
+            if url is not None:
+                index = url.find("?")
+                if index != -1:
+                    sanitized_url = url[:index]
+                else:
+                    sanitized_url = url
+            if sanitized_url is not None and (url_site == site or url_site == ''):
+                page_links.add(urljoin(response.url, sanitized_url))
 
         for page_link in page_links:
-            child_urls, child_inputs = discover_links_and_inputs(page_link, site, session, visited_urls=visited_urls.union(discovered_links), form_inputs=form_inputs)
+            child_urls, child_inputs = discover_links_and_inputs(page_link, site, session,
+                                                                 visited_urls=visited_urls.union(discovered_links),
+                                                                 form_inputs=form_inputs)
             discovered_links.update(child_urls)
             form_inputs = dict(form_inputs, **child_inputs)
 
