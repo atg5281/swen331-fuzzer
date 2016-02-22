@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+import copy
 import getopt
 from functools import reduce
 import requests
@@ -59,7 +60,7 @@ def main(argv):
 
 def authenticate(url, session):
     response = session.get(url)
-    soup = BeautifulSoup(response.content)
+    soup = BeautifulSoup(response.content, "html.parser")
     payload = {
         "username": "admin",
         "password": "password",
@@ -78,7 +79,6 @@ def discover(url, common_words, session):
     links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session)
     if common_words is not None:
         links = links.union(set(discover_guess_links(links, common_words, session)))
-    discover_print_inputs(links, session)
     print('Discovered ' + str(len(links)) + ' URLs:')
     print(links)
     print()
@@ -89,14 +89,17 @@ def discover(url, common_words, session):
 def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict()):
     if initial_url in visited_urls:
         return set(), dict()
-    
+
     response = session.get(initial_url)
-    if response.status_code == 200 and not response.url in visited_urls:
+    if response.status_code == 200 and response.url not in visited_urls:
         discovered_links = {initial_url, response.url}
         print('discover_links_and_inputs: Discovered ' + str(discovered_links))
 
-        soup = BeautifulSoup(response.content, 'html.parser')
-        form_inputs[initial_url] = discover_form_inputs(soup)
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        inputs_on_current_page = discover_form_inputs(soup)
+        if len(inputs_on_current_page) != 0:
+            form_inputs[initial_url] = inputs_on_current_page
 
         page_links = set()
 
@@ -157,14 +160,12 @@ def generate_links(links, common_words):
 def discover_form_inputs(soup):
     inputs = set()
     for i in soup.find_all('input'):
-        if i.get('type') != 'submit' and i.get('type') != 'button':
-            #i.clear()
-            inputs.add(i)
+        if i.get('type') != 'submit' and i.get('type') != 'button' and i is not None:
+            temp = copy.deepcopy(i)
+            temp.clear()
+            inputs.add(temp)
     return inputs
 
-
-def discover_print_inputs(link, session):
-    pass
 
 if __name__ == "__main__":
     main(sys.argv[1:])
