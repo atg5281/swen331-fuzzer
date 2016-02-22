@@ -59,7 +59,7 @@ def main(argv):
 
 def authenticate(url, session):
     response = session.get(url)
-    soup = BeautifulSoup(response.content)
+    soup = BeautifulSoup(response.content, 'html.parser')
     payload = {
         "username": "admin",
         "password": "password",
@@ -89,31 +89,38 @@ def discover(url, common_words, session):
 def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict()):
     if initial_url in visited_urls:
         return set(), dict()
-    
+
+    print("discover_links_and_inputs: Downloading " + initial_url + "...", end='')
     response = session.get(initial_url)
-    if response.status_code == 200 and not response.url in visited_urls:
-        discovered_links = {initial_url, response.url}
-        print('discover_links_and_inputs: Discovered ' + str(discovered_links))
+    print(' Done')
 
-        soup = BeautifulSoup(response.content, 'html.parser')
-        form_inputs[initial_url] = discover_form_inputs(soup)
-
-        page_links = set()
-
-        for page_link in soup.find_all('a'):
-            url = page_link.get('href')
-            url_site = urlparse(url).netloc
-            if url is not None and (url_site == site or url_site == ''):
-                page_links.add(urljoin(response.url, url))
-
-        for page_link in page_links:
-            child_urls, child_inputs = discover_links_and_inputs(page_link, site, session, visited_urls=visited_urls.union(discovered_links), form_inputs=form_inputs)
-            discovered_links.update(child_urls)
-            form_inputs = dict(form_inputs, **child_inputs)
-
-        return discovered_links, form_inputs
-    else:
+    if response.status_code != 200:
+        print('discover_links_and_inputs: HTTP GET ' + initial_url + ' status is not 200')
         return set(), dict()
+
+    if response.url in visited_urls:
+        return {initial_url}, dict()
+
+    discovered_links = {initial_url, response.url}
+    print('discover_links_and_inputs: Discovered ' + str(discovered_links))
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    form_inputs[initial_url] = discover_form_inputs(soup)
+
+    page_links = set()
+
+    for page_link in soup.find_all('a'):
+        url = page_link.get('href')
+        url_site = urlparse(url).netloc
+        if url is not None and (url_site == site or url_site == ''):
+            page_links.add(urljoin(response.url, url))
+
+    for page_link in page_links:
+        child_urls, child_inputs = discover_links_and_inputs(page_link, site, session, visited_urls=visited_urls.union(discovered_links), form_inputs=form_inputs)
+        discovered_links.update(child_urls)
+        form_inputs = dict(form_inputs, **child_inputs)
+
+    return discovered_links, form_inputs
 
 
 def discover_truncate_links(links):
