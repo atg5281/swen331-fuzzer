@@ -66,6 +66,7 @@ def main(argv):
     except getopt.GetoptError:
         print(helpStr)
 
+
 def authenticate_dvwa(url, session):
     payload = {
         "username": "admin",
@@ -81,6 +82,7 @@ def authenticate_dvwa(url, session):
 
     return authenticate(response.url, session, payload)
 
+
 def authenticate(login_url, session, payload):
     login_submit_response = session.post(login_url, data=payload, allow_redirects=True)
     return login_submit_response.url
@@ -90,12 +92,8 @@ def discover(url, common_words, session, ignore_urls=set()):
     links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session, visited_urls=ignore_urls)
     if common_words is not None:
         links = links.union(set(discover_guess_links(links, common_words, session)))
-    print('Discovered ' + str(len(links)) + ' URLs:')
     links = list(map(sanitize_url, links))
-    print(links)
-    print()
-    print('Discovered ' + str(len(form_inputs)) + ' Form Inputs:')
-    print(form_inputs)
+    discover_print_output(links, form_inputs)
 
 
 def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict()):
@@ -116,7 +114,10 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
     print('discover_links_and_inputs: Discovered ' + str(discovered_links))
 
     soup = BeautifulSoup(response.content, 'html.parser')
-    form_inputs[initial_url] = discover_form_inputs(soup)
+
+    inputs_on_page = discover_form_inputs(soup)
+    if len(inputs_on_page) > 0:
+        form_inputs[initial_url] = inputs_on_page
 
     page_links = set()
 
@@ -175,7 +176,7 @@ def generate_links(links, common_words):
 def discover_form_inputs(soup):
     inputs = set()
     for i in soup.find_all('input'):
-        if i.get('type') != 'submit' and i.get('type') != 'button' and i is not None:
+        if i is not None and i.get('type') != 'submit' and i.get('type') != 'button':
             temp = copy.deepcopy(i)
             temp.clear()
             inputs.add(temp)
@@ -188,6 +189,22 @@ def sanitize_url(url):
         if index != -1:
             return url[:index]
     return url
+
+
+def discover_print_output(urls, inputs):
+    print("\nFinished discovering potential attack points.")
+    print("Discovered " + str(len(urls)) + " urls:")
+    for url in urls:
+        print("\t" + url)
+    print()
+    count = 0
+    for val in inputs.values():
+        count += len(val)
+    print("Discovered " + str(count) + " inputs:")
+    for key in inputs:
+        print("\t" + key + ":")
+        for input_tag in inputs[key]:
+            print("\t\t" + str(input_tag))
 
 
 if __name__ == "__main__":
