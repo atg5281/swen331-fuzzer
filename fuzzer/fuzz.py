@@ -31,6 +31,11 @@ def main(argv):
     """Process all of the arguments for the fuzzer
     argv -- the list of arguments
     """
+    if len(argv) < 1:
+        print('Must specify a command.\n')
+        print(helpStr)
+        return
+
     try:
         if argv[0] != 'discover' and argv[0] != 'test':
             raise getopt.GetoptError("")
