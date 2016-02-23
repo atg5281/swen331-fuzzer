@@ -90,6 +90,8 @@ def authenticate(login_url, session, payload):
 
 def discover(url, common_words, session, ignore_urls=set()):
     links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session, visited_urls=ignore_urls)
+    links.update(discover_guess_links(links, common_words, session))
+    links = set(map(sanitize_url, links))
     if common_words is not None:
         links = links.union(set(discover_guess_links(links, common_words, session)))
     links = list(map(sanitize_url, links))
@@ -150,7 +152,7 @@ def discover_truncate_links(links):
 
 
 def discover_guess_links(links, common_words, session):
-    return filter((lambda link: test_link(link, session)), generate_links(links, common_words))
+    return set(filter((lambda link: test_link(link, session)), generate_links(links, common_words)))
 
 
 def test_link(link, session):
