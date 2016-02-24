@@ -115,8 +115,6 @@ def discover(url, common_words, session, ignore_urls=set()):
     links.update(discover_guess_links(links, common_words, session))
     links = set(map(sanitize_url, links))
     cookie_list = session.cookies
-    if common_words is not None:
-        links = links.union(set(discover_guess_links(links, common_words, session)))
     return links, form_inputs
 
 
