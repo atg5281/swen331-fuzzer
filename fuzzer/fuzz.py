@@ -1,5 +1,4 @@
 from bs4 import BeautifulSoup
-import copy
 import getopt
 from functools import reduce
 import requests
@@ -64,13 +63,17 @@ def main(argv):
                         common_words.append(line.strip())
 
             if command == 'discover':
+                links, form_inputs = discover(initial_url, common_words, session, ignore_urls=ignore_urls)
                 if is_dvwa is not None and is_dvwa:
                     initial_url = authenticate_dvwa(argv[1], session)
                 elif is_dvwa is not None:
                     initial_url = authenticate_bwapp(argv[1], session)
                 logout_url = urljoin(initial_url, "logout.php")
                 ignore_urls.add(logout_url)
-                discover(initial_url, common_words, session, ignore_urls=ignore_urls)
+                new_links, new_form_inputs = discover(initial_url, common_words, session, ignore_urls=ignore_urls)
+                links.update(new_links)
+                form_inputs.update(new_form_inputs)
+                discover_print_output(links, form_inputs)
 
     except getopt.GetoptError:
         print(helpStr)
@@ -114,8 +117,7 @@ def discover(url, common_words, session, ignore_urls=set()):
     cookie_list = session.cookies
     if common_words is not None:
         links = links.union(set(discover_guess_links(links, common_words, session)))
-    links = list(map(sanitize_url, links))
-    discover_print_output(links, form_inputs, cookie_list)
+    return links, form_inputs
 
 
 def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict()):
