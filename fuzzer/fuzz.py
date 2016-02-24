@@ -58,7 +58,7 @@ def main(argv):
                         ignore_urls.add(logout_url)
                 elif opt == '--common-words':
                     for line in open(arg):
-                        common_words.append(line)
+                        common_words.append(line.strip())
 
             if command == 'discover':
                 discover(initial_url, common_words, session, ignore_urls=ignore_urls)
@@ -140,11 +140,11 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
 def discover_truncate_links(links):
     truncated_links = set()
     for link in links:
-        l = urlparse(link)
-        if l.path[-1] != "/":
-            dir_path_list = l.path.split('/')[:-1]
+        url = urlparse(link)
+        if url.path != '' and url.path[-1] != "/":
+            dir_path_list = url.path.split('/')[:-1]
             dir_path = reduce((lambda a, b: a + "/" + b), dir_path_list) + "/"
-            truncated_links.add(l.scheme + "://" + l.netloc + dir_path)
+            truncated_links.add(url.scheme + "://" + url.netloc + dir_path)
         else:
             truncated_links.add(link)
 
@@ -152,7 +152,8 @@ def discover_truncate_links(links):
 
 
 def discover_guess_links(links, common_words, session):
-    return set(filter((lambda link: test_link(link, session)), generate_links(links, common_words)))
+    potential_links = generate_links(links, common_words)
+    return set(filter((lambda link: test_link(link, session)), potential_links))
 
 
 def test_link(link, session):
@@ -170,7 +171,7 @@ def generate_links(links, common_words):
     for dir_path in dir_paths:
         for word in common_words:
             for ending in endings:
-                generated_links.add(dir_path + word + ending)
+                generated_links.add(dir_path + word + '.' + ending)
 
     return generated_links
 
