@@ -73,7 +73,7 @@ def main(argv):
                 new_links, new_form_inputs = discover(initial_url, common_words, session, ignore_urls=ignore_urls)
                 links.update(new_links)
                 form_inputs.update(new_form_inputs)
-                discover_print_output(links, form_inputs)
+                discover_print_output(links, form_inputs, session.cookies)
 
     except getopt.GetoptError:
         print(helpStr)
@@ -114,7 +114,6 @@ def discover(url, common_words, session, ignore_urls=set()):
     links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session, visited_urls=ignore_urls)
     links.update(discover_guess_links(links, common_words, session))
     links = set(map(sanitize_url, links))
-    cookie_list = session.cookies
     return links, form_inputs
 
 
@@ -219,7 +218,7 @@ def sanitize_url(url):
     return url
 
 
-def discover_print_output(urls, inputs, cookie_list):
+def discover_print_output(urls, inputs, cookies):
     print("\nFinished discovering potential attack points.")
     print("Discovered " + str(len(urls)) + " urls:")
     for url in urls:
@@ -233,9 +232,9 @@ def discover_print_output(urls, inputs, cookie_list):
         print("\t" + key + ":")
         for input_tag in inputs[key]:
             print("\t\t" + str(input_tag))
-    print("Discovered " + str(len(cookie_list)) + " cookies:")
-    for cookies in cookie_list:
-        print ("\t" + str(cookies))
+    cookie_inputs = cookies.keys()
+    print("Discovered " + str(len(cookie_inputs)) + " cookie inputs:")
+    print(str(cookie_inputs))
 
 
 if __name__ == "__main__":
