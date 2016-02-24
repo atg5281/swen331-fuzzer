@@ -3,7 +3,7 @@ import getopt
 from functools import reduce
 import requests
 import sys
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, parse_qsl
 
 helpStr = ("COMMANDS:\n"
            "\tdiscover  Output a comprehensive, human-readable list of all discovered inputs to the system."
@@ -60,20 +60,23 @@ def main(argv):
 
                 elif opt == '--common-words':
                     for line in open(arg):
-                        common_words.append(line.strip())
+                        common_words.append(line)
 
             if command == 'discover':
-                links, form_inputs = discover(initial_url, common_words, session, ignore_urls=ignore_urls)
+                links, form_inputs, url_parameters = discover(initial_url, common_words, session,
+                                                              ignore_urls=ignore_urls)
                 if is_dvwa is not None and is_dvwa:
                     initial_url = authenticate_dvwa(argv[1], session)
                 elif is_dvwa is not None:
                     initial_url = authenticate_bwapp(argv[1], session)
                 logout_url = urljoin(initial_url, "logout.php")
                 ignore_urls.add(logout_url)
-                new_links, new_form_inputs = discover(initial_url, common_words, session, ignore_urls=ignore_urls)
+                new_links, new_form_inputs, new_url_parameters = discover(initial_url, common_words, session,
+                                                                          ignore_urls=ignore_urls)
                 links.update(new_links)
                 form_inputs.update(new_form_inputs)
-                discover_print_output(links, form_inputs, session.cookies)
+                url_parameters.update(new_url_parameters)
+                discover_print_output(links, form_inputs, session.cookies, url_parameters)
 
     except getopt.GetoptError:
         print(helpStr)
@@ -111,15 +114,19 @@ def authenticate(login_url, session, payload):
 
 
 def discover(url, common_words, session, ignore_urls=set()):
-    links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session, visited_urls=ignore_urls)
+    links, form_inputs, url_parameters = discover_links_and_inputs(url, urlparse(url).netloc, session,
+                                                                   visited_urls=ignore_urls)
     links.update(discover_guess_links(links, common_words, session))
     links = set(map(sanitize_url, links))
-    return links, form_inputs
+    if common_words is not None:
+        links = links.union(set(discover_guess_links(links, common_words, session)))
+    return links, form_inputs, url_parameters
 
 
-def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict()):
+def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict(),
+                              url_parameters=dict()):
     if initial_url in visited_urls:
-        return set(), dict()
+        return set(), dict(), dict()
 
     print("discover_links_and_inputs: Downloading " + initial_url + "...", end='')
     response = session.get(initial_url)
@@ -127,12 +134,20 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
 
     if response.status_code != 200:
         print('discover_links_and_inputs: HTTP GET ' + initial_url + ' status is not 200')
-        return set(), dict()
+        return set(), dict(), dict()
 
     if response.url in visited_urls:
-        return {initial_url}, dict()
+        return {initial_url}, dict(), dict()
     discovered_links = {initial_url, response.url}
     print('discover_links_and_inputs: Discovered ' + str(discovered_links))
+
+    parameters = discover_get_url_parameters(initial_url)
+    sanitized_url = sanitize_url(initial_url)
+    if len(parameters) > 0:
+        if sanitized_url in url_parameters.keys():
+            url_parameters[sanitized_url].update(parameters)
+        else:
+            url_parameters[sanitized_url] = parameters
 
     soup = BeautifulSoup(response.content, 'html.parser')
 
@@ -149,21 +164,25 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
             page_links.add(urljoin(response.url, url))
 
     for page_link in page_links:
-        child_urls, child_inputs = discover_links_and_inputs(page_link, site, session, visited_urls=visited_urls.union(discovered_links), form_inputs=form_inputs)
+        child_urls, child_inputs, child_url_parameters = discover_links_and_inputs(page_link, site, session,
+                                                                                   visited_urls=visited_urls.union(discovered_links),
+                                                                                   form_inputs=form_inputs,
+                                                                                   url_parameters=url_parameters)
         discovered_links.update(child_urls)
         form_inputs = dict(form_inputs, **child_inputs)
+        url_parameters = dict(url_parameters, **child_url_parameters)
 
-    return discovered_links, form_inputs
+    return discovered_links, form_inputs, url_parameters
 
 
 def discover_truncate_links(links):
     truncated_links = set()
     for link in links:
-        url = urlparse(link)
-        if url.path != '' and url.path[-1] != "/":
-            dir_path_list = url.path.split('/')[:-1]
+        l = urlparse(link)
+        if l.path[-1] != "/":
+            dir_path_list = l.path.split('/')[:-1]
             dir_path = reduce((lambda a, b: a + "/" + b), dir_path_list) + "/"
-            truncated_links.add(url.scheme + "://" + url.netloc + dir_path)
+            truncated_links.add(l.scheme + "://" + l.netloc + dir_path)
         else:
             truncated_links.add(link)
 
@@ -171,8 +190,7 @@ def discover_truncate_links(links):
 
 
 def discover_guess_links(links, common_words, session):
-    potential_links = generate_links(links, common_words)
-    return set(filter((lambda link: test_link(link, session)), potential_links))
+    return set(filter((lambda link: test_link(link, session)), generate_links(links, common_words)))
 
 
 def test_link(link, session):
@@ -190,7 +208,7 @@ def generate_links(links, common_words):
     for dir_path in dir_paths:
         for word in common_words:
             for ending in endings:
-                generated_links.add(dir_path + word + '.' + ending)
+                generated_links.add(dir_path + word + ending)
 
     return generated_links
 
@@ -213,7 +231,18 @@ def sanitize_url(url):
     return url
 
 
-def discover_print_output(urls, inputs, cookies):
+def discover_get_url_parameters(url):
+    queries = parse_qsl(urlparse(url).query)
+    keys = set()
+    for key, _ in queries:
+        if key == '':
+            keys.add('EMPTY STRING')
+        else:
+            keys.add(key)
+    return keys
+
+
+def discover_print_output(urls, inputs, cookies, url_parameters):
     print("\nFinished discovering potential attack points.")
     print("Discovered " + str(len(urls)) + " urls:")
     for url in urls:
@@ -230,6 +259,14 @@ def discover_print_output(urls, inputs, cookies):
     cookie_inputs = cookies.keys()
     print("Discovered " + str(len(cookie_inputs)) + " cookie inputs:")
     print(str(cookie_inputs))
+    count = 0
+    for val in url_parameters.values():
+        count += len(val)
+    print("Discovered " + str(count) + " url query inputs:")
+    for url in url_parameters:
+        print("\t" + url + ":")
+        for query in url_parameters[url]:
+            print("\t\t" + query)
 
 
 if __name__ == "__main__":
