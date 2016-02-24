@@ -50,17 +50,26 @@ def main(argv):
 
             session = requests.Session()
 
+            is_dvwa = None
+
             for opt, arg in opts:
                 if opt == '--custom-auth':
                     if arg == 'dvwa':
-                        initial_url = authenticate_dvwa(argv[1], session)
-                        logout_url = urljoin(initial_url, "logout.php")
-                        ignore_urls.add(logout_url)
+                        is_dvwa = True
+                    elif arg == 'bwapp':
+                        is_dvwa = False
+
                 elif opt == '--common-words':
                     for line in open(arg):
                         common_words.append(line)
 
             if command == 'discover':
+                if is_dvwa is not None and is_dvwa:
+                    initial_url = authenticate_dvwa(argv[1], session)
+                elif is_dvwa is not None:
+                    initial_url = authenticate_bwapp(argv[1], session)
+                logout_url = urljoin(initial_url, "logout.php")
+                ignore_urls.add(logout_url)
                 discover(initial_url, common_words, session, ignore_urls=ignore_urls)
 
     except getopt.GetoptError:
@@ -81,6 +90,16 @@ def authenticate_dvwa(url, session):
         payload["user_token"] = user_token_tag.get('value')
 
     return authenticate(response.url, session, payload)
+
+
+def authenticate_bwapp(url, session):
+    payload = {
+        "login": "bee",
+        "password": "bug",
+        "security_level": "0",
+        "form": "submit"
+    }
+    return authenticate(url, session, payload)
 
 
 def authenticate(login_url, session, payload):
@@ -117,7 +136,7 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
 
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    inputs_on_page = discover_form_inputs(soup)
+    inputs_on_page = discover_inputs(soup)
     if len(inputs_on_page) > 0:
         form_inputs[initial_url] = inputs_on_page
 
@@ -175,13 +194,18 @@ def generate_links(links, common_words):
     return generated_links
 
 
-def discover_form_inputs(soup):
+def discover_inputs(soup):
     inputs = set()
     for i in soup.find_all('input'):
         if i is not None and i.get('type') != 'submit' and i.get('type') != 'button':
-            temp = copy.deepcopy(i)
-            temp.clear()
-            inputs.add(temp)
+            copy_of_tag = i.__copy__()
+            copy_of_tag.clear()
+            inputs.add(copy_of_tag)
+    for i in soup.find_all("select"):
+        if i is not None:
+            copy_of_tag = i.__copy__()
+            copy_of_tag.clear()
+            inputs.add(copy_of_tag)
     return inputs
 
 
