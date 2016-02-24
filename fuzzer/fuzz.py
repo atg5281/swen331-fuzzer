@@ -50,17 +50,26 @@ def main(argv):
 
             session = requests.Session()
 
+            is_dvwa = None
+
             for opt, arg in opts:
                 if opt == '--custom-auth':
                     if arg == 'dvwa':
-                        initial_url = authenticate_dvwa(argv[1], session)
-                        logout_url = urljoin(initial_url, "logout.php")
-                        ignore_urls.add(logout_url)
+                        is_dvwa = True
+                    elif arg == 'bwapp':
+                        is_dvwa = False
+
                 elif opt == '--common-words':
                     for line in open(arg):
                         common_words.append(line.strip())
 
             if command == 'discover':
+                if is_dvwa is not None and is_dvwa:
+                    initial_url = authenticate_dvwa(argv[1], session)
+                elif is_dvwa is not None:
+                    initial_url = authenticate_bwapp(argv[1], session)
+                logout_url = urljoin(initial_url, "logout.php")
+                ignore_urls.add(logout_url)
                 discover(initial_url, common_words, session, ignore_urls=ignore_urls)
 
     except getopt.GetoptError:
@@ -83,6 +92,16 @@ def authenticate_dvwa(url, session):
     return authenticate(response.url, session, payload)
 
 
+def authenticate_bwapp(url, session):
+    payload = {
+        "login": "bee",
+        "password": "bug",
+        "security_level": "0",
+        "form": "submit"
+    }
+    return authenticate(url, session, payload)
+
+
 def authenticate(login_url, session, payload):
     login_submit_response = session.post(login_url, data=payload, allow_redirects=True)
     return login_submit_response.url
@@ -92,10 +111,11 @@ def discover(url, common_words, session, ignore_urls=set()):
     links, form_inputs = discover_links_and_inputs(url, urlparse(url).netloc, session, visited_urls=ignore_urls)
     links.update(discover_guess_links(links, common_words, session))
     links = set(map(sanitize_url, links))
+    cookie_list = session.cookies
     if common_words is not None:
         links = links.union(set(discover_guess_links(links, common_words, session)))
     links = list(map(sanitize_url, links))
-    discover_print_output(links, form_inputs)
+    discover_print_output(links, form_inputs, cookie_list)
 
 
 def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict()):
@@ -117,7 +137,7 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
 
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    inputs_on_page = discover_form_inputs(soup)
+    inputs_on_page = discover_inputs(soup)
     if len(inputs_on_page) > 0:
         form_inputs[initial_url] = inputs_on_page
 
@@ -176,13 +196,18 @@ def generate_links(links, common_words):
     return generated_links
 
 
-def discover_form_inputs(soup):
+def discover_inputs(soup):
     inputs = set()
     for i in soup.find_all('input'):
         if i is not None and i.get('type') != 'submit' and i.get('type') != 'button':
-            temp = copy.deepcopy(i)
-            temp.clear()
-            inputs.add(temp)
+            copy_of_tag = i.__copy__()
+            copy_of_tag.clear()
+            inputs.add(copy_of_tag)
+    for i in soup.find_all("select"):
+        if i is not None:
+            copy_of_tag = i.__copy__()
+            copy_of_tag.clear()
+            inputs.add(copy_of_tag)
     return inputs
 
 
@@ -194,7 +219,7 @@ def sanitize_url(url):
     return url
 
 
-def discover_print_output(urls, inputs):
+def discover_print_output(urls, inputs, cookie_list):
     print("\nFinished discovering potential attack points.")
     print("Discovered " + str(len(urls)) + " urls:")
     for url in urls:
@@ -208,6 +233,9 @@ def discover_print_output(urls, inputs):
         print("\t" + key + ":")
         for input_tag in inputs[key]:
             print("\t\t" + str(input_tag))
+    print("Discovered " + str(len(cookie_list)) + " cookies:")
+    for cookies in cookie_list:
+        print ("\t" + str(cookies))
 
 
 if __name__ == "__main__":
