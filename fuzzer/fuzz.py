@@ -136,7 +136,7 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
 
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    inputs_on_page = discover_inputs(soup)
+    inputs_on_page = discover_form_inputs(soup)
     if len(inputs_on_page) > 0:
         form_inputs[initial_url] = inputs_on_page
 
@@ -195,15 +195,10 @@ def generate_links(links, common_words):
     return generated_links
 
 
-def discover_inputs(soup):
+def discover_form_inputs(soup):
     inputs = set()
     for i in soup.find_all('input'):
         if i is not None and i.get('type') != 'submit' and i.get('type') != 'button':
-            copy_of_tag = i.__copy__()
-            copy_of_tag.clear()
-            inputs.add(copy_of_tag)
-    for i in soup.find_all("select"):
-        if i is not None:
             copy_of_tag = i.__copy__()
             copy_of_tag.clear()
             inputs.add(copy_of_tag)
