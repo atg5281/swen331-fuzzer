@@ -63,6 +63,12 @@ def main(argv):
                         common_words.append(line)
 
             if command == 'discover':
+                try:
+                    session.get(initial_url)
+                except requests.exceptions.RequestException as e:
+                    print ("Bad URL")
+                    return
+
                 links, form_inputs, url_parameters = discover(initial_url, common_words, session,
                                                               ignore_urls=ignore_urls)
                 if is_dvwa is not None and is_dvwa:
