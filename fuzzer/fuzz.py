@@ -172,18 +172,18 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
     if initial_url in visited_urls:
         return set(), dict(), dict()
 
-    print("discover_links_and_inputs: Downloading " + initial_url + "...", end='')
+    print("Downloading " + initial_url + "...", end='')
     response = session.get(initial_url)
     print(' Done')
 
     if response.status_code != 200:
-        print('discover_links_and_inputs: HTTP GET ' + initial_url + ' status is not 200')
+        print('HTTP GET ' + initial_url + ' status is not 200')
         return set(), dict(), dict()
 
     if response.url in visited_urls:
         return {initial_url}, dict(), dict()
     discovered_links = {initial_url, response.url}
-    print('discover_links_and_inputs: Discovered ' + str(discovered_links))
+    print('Discovered ' + str(discovered_links))
 
     parameters = discover_get_url_parameters(initial_url)
     sanitized_url = sanitize_url(initial_url)
