@@ -63,10 +63,14 @@ def main(argv):
                         common_words.append(line.strip())
 
             if command == 'discover':
-                links, form_inputs, url_parameters = discover_links_and_inputs(initial_url,
-                                                                               urlparse(initial_url).netloc,
-                                                                               session,
-                                                                               visited_urls=ignore_urls)
+                try:
+                    session.get(initial_url)
+                except requests.exceptions.RequestException as e:
+                    print ("Bad URL")
+                    return
+
+                links, form_inputs, url_parameters = discover(initial_url, common_words, session,
+                                                              ignore_urls=ignore_urls)
                 if is_dvwa is not None and is_dvwa:
                     initial_url = authenticate_dvwa(argv[1], session)
                 elif is_dvwa is not None:
@@ -168,7 +172,13 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
         return set(), dict(), dict()
 
     print("Downloading " + initial_url + "...", end='')
-    response = session.get(initial_url)
+
+    try:
+        response = session.get(initial_url)
+    except Exception as e:
+        print(' Exception: ' + str(e))
+        return set(), dict(), dict()
+
     print(' Done')
 
     if response.status_code != 200:
