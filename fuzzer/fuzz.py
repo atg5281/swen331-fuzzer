@@ -60,7 +60,7 @@ def main(argv):
 
                 elif opt == '--common-words':
                     for line in open(arg):
-                        common_words.append(line)
+                        common_words.append(line.strip())
 
             if command == 'discover':
                 links, form_inputs, url_parameters = discover_links_and_inputs(initial_url,
@@ -145,10 +145,9 @@ def discover(url, common_words, session, ignore_urls=set()):
     """
     links, form_inputs, url_parameters = discover_links_and_inputs(url, urlparse(url).netloc, session,
                                                                    visited_urls=ignore_urls)
-    links.update(discover_guess_links(links, common_words, session))
     links = set(map(sanitize_url, links))
     if common_words is not None:
-        links = links.union(set(discover_guess_links(links, common_words, session)))
+            links.update(discover_guess_links(links, common_words, session))
     return links, form_inputs, url_parameters
 
 
@@ -242,10 +241,20 @@ def discover_guess_links(links, common_words, session):
     :param session: the current request session
     :return: a set of valid webpages
     """
-    return set(filter((lambda link: test_link(link, session)), generate_links(links, common_words)))
+    truncated_urls = set(map(sanitize_url, links))
+    generated_urls = generate_links(truncated_urls, common_words)
+    good_urls = set()
+    for url in generated_urls:
+        status = discover_get_status_code(url, session)
+        if status == 200:
+            print("Sucessfully Guessed: " + url)
+            good_urls.add(url)
+        elif status == 401 or status == 403:
+            generated_urls.add(generate_links([url], common_words))
+    return good_urls
 
 
-def test_link(link, session):
+def discover_get_status_code(link, session):
     """
     tests the url to see if it is valid
     if the status code is 200, then it is a valid url
@@ -254,7 +263,7 @@ def test_link(link, session):
     :return:
     """
     r = session.get(link)
-    return r.status_code == 200
+    return r.status_code
 
 
 def generate_links(links, common_words):
@@ -273,8 +282,8 @@ def generate_links(links, common_words):
     for dir_path in dir_paths:
         for word in common_words:
             for ending in endings:
-                generated_links.add(dir_path + word + ending)
-
+                generated_links.add(dir_path + word)
+                generated_links.add(dir_path + word + '.' + ending)
     return generated_links
 
 
