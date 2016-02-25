@@ -83,6 +83,12 @@ def main(argv):
 
 
 def authenticate_dvwa(url, session):
+    """
+    sets up the authentication for the DVWA site
+    :param url: the login url of dvwa
+    :param session: the current request session
+    :return: the redirected url after authentication
+    """
     payload = {
         "username": "admin",
         "password": "password",
@@ -99,6 +105,12 @@ def authenticate_dvwa(url, session):
 
 
 def authenticate_bwapp(url, session):
+    """
+    sets up authentication for bwapp
+    :param url: the login url of bwapp
+    :param session: the current request session
+    :return: the redirected url after authentication
+    """
     payload = {
         "login": "bee",
         "password": "bug",
@@ -109,11 +121,26 @@ def authenticate_bwapp(url, session):
 
 
 def authenticate(login_url, session, payload):
+    """
+    send the authentication POST request to the sever
+    :param login_url: the url of the login page
+    :param session: the current request session
+    :param payload: the login information
+    :return: the redirected url after logging in
+    """
     login_submit_response = session.post(login_url, data=payload, allow_redirects=True)
     return login_submit_response.url
 
 
 def discover(url, common_words, session, ignore_urls=set()):
+    """
+    discovers all inputs on the specified url
+    :param url: the url to start crawling from
+    :param common_words: common words to use to guess web pages
+    :param session: the current request session
+    :param ignore_urls: urls to ignore, i.e logout.
+    :return: a tuple of the found inputs
+    """
     links, form_inputs, url_parameters = discover_links_and_inputs(url, urlparse(url).netloc, session,
                                                                    visited_urls=ignore_urls)
     links.update(discover_guess_links(links, common_words, session))
@@ -125,6 +152,17 @@ def discover(url, common_words, session, ignore_urls=set()):
 
 def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict(),
                               url_parameters=dict()):
+    """
+    discovers all references to other pages and form input fields on a webpage
+    recursively visits each page that it discovers and discovers inputs on those
+    :param initial_url: the starting url of the webapp
+    :param site: the hostname of the server. used to not visit offsite websites
+    :param session: the current request session
+    :param visited_urls: the list of urls that this algorithm has already visited
+    :param form_inputs: the inputs found on each page
+    :param url_parameters: the query parameters discovered on a webpage
+    :return: a tuple of all of the urls, form inputs, and url parameters discovered
+    """
     if initial_url in visited_urls:
         return set(), dict(), dict()
 
@@ -176,6 +214,11 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
 
 
 def discover_truncate_links(links):
+    """
+    truncates the url down to just the hostname and filepath
+    :param links: list of urls to truncate
+    :return: a list of the truncated urls
+    """
     truncated_links = set()
     for link in links:
         l = urlparse(link)
@@ -190,15 +233,35 @@ def discover_truncate_links(links):
 
 
 def discover_guess_links(links, common_words, session):
+    """
+    guesses new urls
+    :param links: truncated urls
+    :param common_words: list of words to use to guess web pages
+    :param session: the current request session
+    :return: a set of valid webpages
+    """
     return set(filter((lambda link: test_link(link, session)), generate_links(links, common_words)))
 
 
 def test_link(link, session):
+    """
+    tests the url to see if it is valid
+    if the status code is 200, then it is a valid url
+    :param link: url to test
+    :param session: the current request session
+    :return:
+    """
     r = session.get(link)
     return r.status_code == 200
 
 
 def generate_links(links, common_words):
+    """
+    generate new urls based on the list of truncated urls and the list of common words
+    :param links: the list of truncated urls
+    :param common_words: list of words used to guess urls
+    :return: a list of generated urls
+    """
     endings = ["php", "jsp", "html", "htm", "asp", "aspx", "axd", "asx", "asmx", "ashx", "aspx", "css", "cfm", "yaws",
                "swf", "xhtml", "jhtml", "jspx", "wss", "do", "action", "js", "pl", "php4", "php3", "phtml", "py",
                "rb", "rhtml", "xml", "rss", "svg", "cgi", "dll"]
@@ -214,6 +277,11 @@ def generate_links(links, common_words):
 
 
 def discover_form_inputs(soup):
+    """
+    discover all form inputs on a webpage
+    :param soup: the beautifulsoup object that contains the webpage
+    :return: all valid form inputs
+    """
     inputs = set()
     for i in soup.find_all('input'):
         if i is not None and i.get('type') != 'submit' and i.get('type') != 'button':
@@ -224,6 +292,11 @@ def discover_form_inputs(soup):
 
 
 def sanitize_url(url):
+    """
+    removes queries and parameters from urls
+    :param url: url to sanitize
+    :return: sanitized url
+    """
     if url is not None:
         index = url.find("?")
         if index != -1:
@@ -232,6 +305,11 @@ def sanitize_url(url):
 
 
 def discover_get_url_parameters(url):
+    """
+    gets the query and query parameters from a url
+    :param url: url to get query and parameters from
+    :return: url query and parameters
+    """
     queries = parse_qsl(urlparse(url).query)
     keys = set()
     for key, _ in queries:
@@ -243,6 +321,14 @@ def discover_get_url_parameters(url):
 
 
 def discover_print_output(urls, inputs, cookies, url_parameters):
+    """
+    print out results in a user-friendly fashion
+    :param urls: the discovered urls (truncated)
+    :param inputs: all form inputs discovered
+    :param cookies: all cookies that were encountered
+    :param url_parameters: all of the queries and query parameters found
+    :return: None
+    """
     print("\nFinished discovering potential attack points.")
     print("Discovered " + str(len(urls)) + " urls:")
     for url in urls:
