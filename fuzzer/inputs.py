@@ -1,17 +1,15 @@
-import requests
-
-
 class FormInput:
-    def __init__(self, url, tag):
+    def __init__(self, url, tag, session):
         self.name = "FormInput"
         self.url = url
         self.tag = tag
+        self.session = session
 
     def submit(self, form_input):
-        return requests.post(self.url, data=form_input, allow_redirects=True)
+        return self.session.post(self.url, data=form_input, allow_redirects=True)
 
     def __str__(self):
-        return self.name + ":\n\t" + str(self.url) + "\n\t" + str(self.tag)
+        return self.name + ":\n\t" + str(self.url) + "\n\t" + str(self.tag) + "\n"
 
 
 class CookieInput:

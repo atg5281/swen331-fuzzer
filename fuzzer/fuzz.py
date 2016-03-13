@@ -111,7 +111,7 @@ def main(argv):
 
                     for url in form_inputs:
                         for tag in form_inputs[url]:
-                            inputs.append(FormInput(url, tag))
+                            inputs.append(FormInput(url, tag, session))
 
                     for url in links:
                         for cookie_key in session.cookies.keys():
@@ -416,16 +416,15 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
 
 
 def test(vectors, inputs, sensitive, random, slow):
-    print("in test")
-    print(vectors)
-    print(sensitive)
-    print(random)
-    print(slow)
-
-    for input in inputs:
+    broken_inputs = dict()
+    for i in inputs:
         for vector in vectors:
-            response = input.submit(vector)
-            print('Testing the input', input, ' with the vector: ', vector)
+            response = i.submit(vector)
+            print('Testing vector \"' + vector + "\" on:\n", i)
+            if response.status_code != 200:
+                print("Broken input:", requests.codes[response.status_code])
+                broken_inputs[i] = vector
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
