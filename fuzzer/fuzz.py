@@ -146,6 +146,7 @@ def authenticate_dvwa(url, session):
     if user_token_tag is not None and user_token_tag.get('value') is not None:
         payload["user_token"] = user_token_tag.get('value')
 
+    session.cookies['security'] = 'low'
     return authenticate(response.url, session, payload)
 
 
@@ -415,7 +416,7 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
             print("\t\t" + query)
 
 
-def test(vectors, inputs, sensitive, random, slow):
+def test(vectors, inputs, sensitive_words, random, slow):
     broken_inputs = dict()
     for i in inputs:
         for vector in vectors:
@@ -424,6 +425,10 @@ def test(vectors, inputs, sensitive, random, slow):
             if response.status_code != 200:
                 print("Broken input:", requests.codes[response.status_code])
                 broken_inputs[i] = vector
+            else:
+                for sensitive_word in sensitive_words:
+                    if sensitive_word in response.text:
+                        print("Sensitive data found:\n", i + "\n", sensitive_word)
 
 
 if __name__ == "__main__":
