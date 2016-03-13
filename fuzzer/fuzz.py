@@ -41,12 +41,13 @@ def main(argv):
         else:
             command = argv[0]
             arguments = argv[2:] if len(argv) > 1 else []
-            opts, args = getopt.getopt(arguments, "", ['custom-auth=', 'common-words=', 'vectors=', 'random=',
-                                                       'slow='])
+            opts, args = getopt.getopt(arguments, "", ['custom-auth=', 'common-words=', 'vectors=', 'sensitive=',
+                                                       'random=', 'slow='])
             initial_url = argv[1]
             common_words = []
             ignore_urls = set()
             vectors = []
+            sensitive = []
             random = False
             slow_millis = 500
 
@@ -68,6 +69,10 @@ def main(argv):
                 elif opt == '--vectors':
                     for line in open(arg):
                         vectors.append(line.strip())
+
+                elif opt == '--sensitive':
+                    for line in open(arg):
+                        sensitive.append(line)
 
                 elif opt == '--random':
                     if arg == 'True' or arg == 'true':
@@ -98,7 +103,7 @@ def main(argv):
                 url_parameters.update(new_url_parameters)
                 discover_print_output(links, form_inputs, session.cookies, url_parameters)
             elif command == 'test':
-                test(vectors, random, slow_millis)
+                test(vectors, sensitive, random, slow_millis)
 
     except getopt.GetoptError:
         print(helpStr)
@@ -392,8 +397,9 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
             print("\t\t" + query)
 
 
-def test(vectors, random, slow):
+def test(vectors, sensitive, random, slow):
     print(vectors)
+    print(sensitive)
     print(random)
     print(slow)
 
