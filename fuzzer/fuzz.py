@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import getopt
 from functools import reduce
+from inputs import *
 import requests
 import sys
 from urllib.parse import urljoin, urlparse, parse_qsl
