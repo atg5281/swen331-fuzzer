@@ -46,6 +46,9 @@ def main(argv):
             initial_url = argv[1]
             common_words = []
             ignore_urls = set()
+            vectors = []
+            random = False
+            slow_millis = 500
 
             session = requests.Session()
 
@@ -61,6 +64,17 @@ def main(argv):
                 elif opt == '--common-words':
                     for line in open(arg):
                         common_words.append(line.strip())
+
+                elif opt == '--vectors':
+                    for line in open(arg):
+                        vectors.append(line.strip())
+
+                elif opt == '--random':
+                    if arg == 'True' or arg == 'true':
+                        random = True
+
+                elif opt == '--slow':
+                    slow_millis = int(arg)
 
             if command == 'discover':
                 try:
@@ -83,6 +97,8 @@ def main(argv):
                 form_inputs.update(new_form_inputs)
                 url_parameters.update(new_url_parameters)
                 discover_print_output(links, form_inputs, session.cookies, url_parameters)
+            elif command == 'test':
+                test(vectors, random, slow_millis)
 
     except getopt.GetoptError:
         print(helpStr)
@@ -374,6 +390,12 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
         print("\t" + url + ":")
         for query in url_parameters[url]:
             print("\t\t" + query)
+
+
+def test(vectors, random, slow):
+    print(vectors)
+    print(random)
+    print(slow)
 
 
 if __name__ == "__main__":
