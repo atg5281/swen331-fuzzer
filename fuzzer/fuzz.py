@@ -1,10 +1,11 @@
 from bs4 import BeautifulSoup
 import getopt
 from functools import reduce
-from inputs import *
+from fuzzer.inputs import FormInput, CookieInput, URLParameterInput
 import requests
 import sys
 from urllib.parse import urljoin, urlparse, parse_qsl
+
 
 helpStr = ("COMMANDS:\n"
            "\tdiscover  Output a comprehensive, human-readable list of all discovered inputs to the system."
@@ -105,18 +106,19 @@ def main(argv):
                 discover_print_output(links, form_inputs, session.cookies, url_parameters)
 
                 if command == 'test':
+                    print("testing")
                     inputs = list()
 
-                    for url, tags in form_inputs:
-                        for tag in tags:
+                    for url in form_inputs:
+                        for tag in form_inputs[url]:
                             inputs.append(FormInput(url, tag))
 
                     for url in links:
                         for cookie_key in session.cookies.keys():
                             inputs.append(CookieInput(url, cookie_key))
 
-                    for url, parameter_keys in url_parameters:
-                        for parameter_key in parameter_keys:
+                    for url in url_parameters:
+                        for parameter_key in url_parameters[url]:
                             inputs.append(URLParameterInput(url, parameter_key))
 
                     test(vectors, inputs, sensitive, random, slow_millis)
@@ -414,6 +416,7 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
 
 
 def test(vectors, inputs, sensitive, random, slow):
+    print("in test")
     print(vectors)
     print(sensitive)
     print(random)

@@ -7,8 +7,8 @@ class FormInput:
         self.url = url
         self.tag = tag
 
-    def submit(self, input):
-        return requests.post(self.url, data=input, allow_redirects=True)
+    def submit(self, form_input):
+        return requests.post(self.url, data=form_input, allow_redirects=True)
 
     def __str__(self):
         return "FormInput"
@@ -18,7 +18,7 @@ class CookieInput:
     def __init__(self, url, cookie_key):
         pass
 
-    def submit(self):
+    def submit(self, vector):
         pass
 
     def __str__(self):
@@ -29,7 +29,7 @@ class URLParameterInput:
     def __init__(self, url, parameter_key):
         pass
 
-    def submit(self):
+    def submit(self, vector):
         pass
 
     def __str__(self):
