@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import getopt
 from functools import reduce
-from fuzzer.inputs import FormInput, CookieInput, URLParameterInput
+from inputs import FormInput, CookieInput, URLParameterInput
 import requests
 import sys
 from urllib.parse import urljoin, urlparse, parse_qsl
