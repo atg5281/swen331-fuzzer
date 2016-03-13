@@ -102,8 +102,23 @@ def main(argv):
                 form_inputs.update(new_form_inputs)
                 url_parameters.update(new_url_parameters)
                 discover_print_output(links, form_inputs, session.cookies, url_parameters)
-            if command == 'test':
-                test(vectors, sensitive, random, slow_millis)
+
+                if command == 'test':
+                    inputs = list()
+
+                    for url, tags in form_inputs:
+                        for tag in tags:
+                            inputs.append(FormInput(url, tag))
+
+                    for url in links:
+                        for cookie_key in session.cookies.keys():
+                            inputs.append(CookieInput(url, cookie_key))
+
+                    for url, parameter_keys in url_parameters:
+                        for parameter_key in parameter_keys:
+                            inputs.append(URLParameterInput(url, parameter_key))
+
+                    test(vectors, inputs, sensitive, random, slow_millis)
 
     except getopt.GetoptError:
         print(helpStr)
@@ -397,12 +412,16 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
             print("\t\t" + query)
 
 
-def test(vectors, sensitive, random, slow):
+def test(vectors, inputs, sensitive, random, slow):
     print(vectors)
     print(sensitive)
     print(random)
     print(slow)
 
+    for input in inputs:
+        for vector in vectors:
+            response = input.submit(vector)
+            print('Testing the input', input, ' with the vector: ', vector)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
