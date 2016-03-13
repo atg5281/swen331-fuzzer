@@ -119,7 +119,7 @@ def main(argv):
 
                     for url in url_parameters:
                         for parameter_key in url_parameters[url]:
-                            inputs.append(URLParameterInput(url, parameter_key))
+                            inputs.append(URLParameterInput(session, url, parameter_key))
 
                     test(vectors, inputs, sensitive, random, slow_millis)
 
