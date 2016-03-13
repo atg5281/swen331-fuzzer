@@ -11,7 +11,7 @@ class FormInput:
         return requests.post(self.url, data=form_input, allow_redirects=True)
 
     def __str__(self):
-        return "FormInput"
+        return self.name + ":\n\t" + str(self.url) + "\n\t" + str(self.tag)
 
 
 class CookieInput:
