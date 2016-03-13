@@ -81,7 +81,7 @@ def main(argv):
                 elif opt == '--slow':
                     slow_millis = int(arg)
 
-            if command == 'discover':
+            if command == 'discover' or command == 'test':
                 try:
                     session.get(initial_url)
                 except requests.exceptions.RequestException as e:
@@ -102,7 +102,7 @@ def main(argv):
                 form_inputs.update(new_form_inputs)
                 url_parameters.update(new_url_parameters)
                 discover_print_output(links, form_inputs, session.cookies, url_parameters)
-            elif command == 'test':
+            if command == 'test':
                 test(vectors, sensitive, random, slow_millis)
 
     except getopt.GetoptError:
