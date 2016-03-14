@@ -429,10 +429,10 @@ def test(vectors, inputs, sensitive_words, random, slow):
                 broken_inputs[i] = vector
             if ((end - start) > slow):
                 print("Slow Response")
-            else:
-                for sensitive_word in sensitive_words:
-                    if sensitive_word in response.text:
-                        print("Sensitive data found:\n", i + "\n", sensitive_word)
+
+            for sensitive_word in sensitive_words:
+                if sensitive_word in response.text:
+                    print("Sensitive data found:\n", i + "\n", sensitive_word)
 
 
 if __name__ == "__main__":
