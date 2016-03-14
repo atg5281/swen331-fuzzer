@@ -1,15 +1,27 @@
 class FormInput:
-    def __init__(self, url, tag, session):
+    def __init__(self, url, form, session):
         self.name = "FormInput"
         self.url = url
-        self.tag = tag
+        self.form = form
         self.session = session
 
     def submit(self, form_input):
-        return self.session.post(self.url, data=form_input, allow_redirects=True)
+        payload = dict()
+        for tag in self.form.descendants:
+            if tag.name == 'input':
+                if tag['type'] != 'submit':
+                    payload[tag['name']] = form_input
+                else:
+                    payload[tag['type']] = tag['value']
+        if self.form['method'].lower() == 'get':
+            return self.session.get(self.url, data=payload, allow_redirects=True)
+        elif self.form['method'].lower() == 'post':
+            return self.session.post(self.url, data=payload, allow_redirects=True)
 
     def __str__(self):
-        return self.name + ":\n\t" + str(self.url) + "\n\t" + str(self.tag) + "\n"
+        copy_of_form = self.form.__copy__()
+        copy_of_form.clear()
+        return self.name + ":\n\t" + str(self.url) + "\n\t" + str(copy_of_form) + "\n"
 
 
 class CookieInput:

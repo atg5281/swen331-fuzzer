@@ -90,7 +90,7 @@ def main(argv):
                     print ("Bad URL")
                     return
 
-                links, form_inputs, url_parameters = discover(initial_url, common_words, session,
+                links, form_inputs, url_parameters, forms = discover(initial_url, common_words, session,
                                                               ignore_urls=ignore_urls)
                 if is_dvwa is not None and is_dvwa:
                     initial_url = authenticate_dvwa(argv[1], session)
@@ -98,20 +98,21 @@ def main(argv):
                     initial_url = authenticate_bwapp(argv[1], session)
                 logout_url = urljoin(initial_url, "logout.php")
                 ignore_urls.add(logout_url)
-                new_links, new_form_inputs, new_url_parameters = discover(initial_url, common_words, session,
+                new_links, new_form_inputs, new_url_parameters, new_forms = discover(initial_url, common_words, session,
                                                                           ignore_urls=ignore_urls)
                 links.update(new_links)
                 form_inputs.update(new_form_inputs)
                 url_parameters.update(new_url_parameters)
+                forms.update(new_forms)
                 discover_print_output(links, form_inputs, session.cookies, url_parameters)
 
                 if command == 'test':
                     print("testing")
                     inputs = list()
 
-                    for url in form_inputs:
-                        for tag in form_inputs[url]:
-                            inputs.append(FormInput(url, tag, session))
+                    for url in forms:
+                        for form in forms[url]:
+                            inputs.append(FormInput(url, form, session))
 
                     for url in links:
                         for cookie_key in session.cookies.keys():
@@ -146,7 +147,7 @@ def authenticate_dvwa(url, session):
     if user_token_tag is not None and user_token_tag.get('value') is not None:
         payload["user_token"] = user_token_tag.get('value')
 
-    session.cookies['security'] = 'low'
+    #session.cookies['security'] = 'low'
     return authenticate(response.url, session, payload)
 
 
@@ -187,16 +188,16 @@ def discover(url, common_words, session, ignore_urls=set()):
     :param ignore_urls: urls to ignore, i.e logout.
     :return: a tuple of the found inputs
     """
-    links, form_inputs, url_parameters = discover_links_and_inputs(url, urlparse(url).netloc, session,
+    links, form_inputs, url_parameters, forms = discover_links_and_inputs(url, urlparse(url).netloc, session,
                                                                    visited_urls=ignore_urls)
     links = set(map(sanitize_url, links))
     if common_words is not None:
             links.update(discover_guess_links(links, common_words, session))
-    return links, form_inputs, url_parameters
+    return links, form_inputs, url_parameters, forms
 
 
 def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), form_inputs=dict(),
-                              url_parameters=dict()):
+                              url_parameters=dict(), forms=dict()):
     """
     discovers all references to other pages and form input fields on a webpage
     recursively visits each page that it discovers and discovers inputs on those
@@ -206,10 +207,11 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
     :param visited_urls: the list of urls that this algorithm has already visited
     :param form_inputs: the inputs found on each page
     :param url_parameters: the query parameters discovered on a webpage
+    :param forms: the forms on the page
     :return: a tuple of all of the urls, form inputs, and url parameters discovered
     """
     if initial_url in visited_urls:
-        return set(), dict(), dict()
+        return set(), dict(), dict(), dict()
 
     print("Downloading " + initial_url + "...", end='')
 
@@ -217,16 +219,16 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
         response = session.get(initial_url)
     except Exception as e:
         print(' Exception: ' + str(e))
-        return set(), dict(), dict()
+        return set(), dict(), dict(), dict()
 
     print(' Done')
 
     if response.status_code != 200:
         print('HTTP GET ' + initial_url + ' status is not 200')
-        return set(), dict(), dict()
+        return set(), dict(), dict(), dict()
 
     if response.url in visited_urls:
-        return {initial_url}, dict(), dict()
+        return {initial_url}, dict(), dict(), dict()
     discovered_links = {initial_url, response.url}
     print('Discovered ' + str(discovered_links))
 
@@ -244,6 +246,10 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
     if len(inputs_on_page) > 0:
         form_inputs[initial_url] = inputs_on_page
 
+    forms_on_page = soup.find_all('form')
+    if len(forms_on_page) > 0:
+        forms[initial_url] = forms_on_page
+
     page_links = set()
 
     for page_link in soup.find_all('a'):
@@ -253,15 +259,17 @@ def discover_links_and_inputs(initial_url, site, session, visited_urls=set(), fo
             page_links.add(urljoin(response.url, url))
 
     for page_link in page_links:
-        child_urls, child_inputs, child_url_parameters = discover_links_and_inputs(page_link, site, session,
+        child_urls, child_inputs, child_url_parameters, child_forms = discover_links_and_inputs(page_link, site, session,
                                                                                    visited_urls=visited_urls.union(discovered_links),
                                                                                    form_inputs=form_inputs,
-                                                                                   url_parameters=url_parameters)
+                                                                                   url_parameters=url_parameters,
+                                                                                   forms=forms)
         discovered_links.update(child_urls)
         form_inputs = dict(form_inputs, **child_inputs)
         url_parameters = dict(url_parameters, **child_url_parameters)
+        forms = dict(forms, **child_forms)
 
-    return discovered_links, form_inputs, url_parameters
+    return discovered_links, form_inputs, url_parameters, forms
 
 
 def discover_truncate_links(links):
@@ -418,6 +426,7 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
 
 def test(vectors, inputs, sensitive_words, random, slow):
     broken_inputs = dict()
+    print(inputs)
     for i in inputs:
         for vector in vectors:
             response = i.submit(vector)
@@ -428,7 +437,7 @@ def test(vectors, inputs, sensitive_words, random, slow):
             else:
                 for sensitive_word in sensitive_words:
                     if sensitive_word in response.text:
-                        print("Sensitive data found:\n", i + "\n", sensitive_word)
+                        print("Sensitive data found:\n", str(i) + "\n", sensitive_word)
 
 
 if __name__ == "__main__":
