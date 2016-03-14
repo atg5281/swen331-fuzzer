@@ -1,11 +1,9 @@
 from bs4 import BeautifulSoup
-import getopt
+import getopt, requests, sys, time
 from functools import reduce
 from inputs import FormInput, CookieInput, URLParameterInput
-import requests
-import sys
 from urllib.parse import urljoin, urlparse, parse_qsl
-import time
+from random import randrange
 
 helpStr = ("COMMANDS:\n"
            "\tdiscover  Output a comprehensive, human-readable list of all discovered inputs to the system."
@@ -415,10 +413,15 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
         for query in url_parameters[url]:
             print("\t\t" + query)
 
-
 def test(vectors, inputs, sensitive_words, random, slow):
-    broken_inputs = dict()
-    for i in inputs:
+    if(random):
+        random_index = randrange(0,len(inputs))
+        vector_test(vectors, inputs[random_index], sensitive_words, slow)
+    else:
+        for i in inputs:
+            vector_test(vectors, i, sensitive_words, slow)
+
+def vector_test(vectors, i, sensitive_words, slow):
         for vector in vectors:
             start = start = int(round(time.time() * 1000))
             response = i.submit(vector)
@@ -426,7 +429,6 @@ def test(vectors, inputs, sensitive_words, random, slow):
             print('Testing vector \"' + vector + "\" on:\n", i)
             if response.status_code != 200:
                 print("Broken input:", requests.codes[response.status_code])
-                broken_inputs[i] = vector
             if ((end - start) > slow):
                 print("Slow Response")
 
