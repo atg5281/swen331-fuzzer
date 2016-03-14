@@ -25,7 +25,6 @@ class CookieInput:
 
 class URLParameterInput:
     def __init__(self, session, url, parameter_key):
-        print('Creating a URLParameterInput with url = ' + url + ' and parameter_key = ' + parameter_key)
         self.session = session
         self.url = url
         self.parameter_key = parameter_key
