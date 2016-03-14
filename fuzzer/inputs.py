@@ -1,3 +1,5 @@
+import requests
+
 class FormInput:
     def __init__(self, url, form, session):
         self.name = "FormInput"
@@ -25,14 +27,32 @@ class FormInput:
 
 
 class CookieInput:
-    def __init__(self, url, cookie_key):
-        pass
+    """
+    Class representing a Cookie Input object
+    """
+    def __init__(self, url, cookie_key, session):
+        """
+        :param url: The URL associated with each cookie input
+        :param cookie_key: The unique cookie key associated with each cookie input. E.g. "Security"
+        :param session: The requests session
+        :return: A cookie Object
+        """
+        self.url = url
+        self.cookie_key = cookie_key
+        self.session = session
 
     def submit(self, vector):
-        pass
+        """
+        :param vector: Updating the cookie with the vector value
+        :return: A requests get response
+        """
+        cookies = self.session.cookies.copy()
+        cookies.set(self.cookie_key, vector)
+        response = requests.get(self.url, cookies=cookies)
+        return response
 
     def __str__(self):
-        return "CookieInput"
+        return "CookieInput with key = " + self.cookie_key + " on " + self.url
 
 
 class URLParameterInput:

@@ -1,11 +1,9 @@
 from bs4 import BeautifulSoup
-import getopt
+import getopt, requests, sys, time
 from functools import reduce
 from inputs import FormInput, CookieInput, URLParameterInput
-import requests
-import sys
 from urllib.parse import urljoin, urlparse, parse_qsl
-
+from random import randrange
 
 helpStr = ("COMMANDS:\n"
            "\tdiscover  Output a comprehensive, human-readable list of all discovered inputs to the system."
@@ -74,7 +72,7 @@ def main(argv):
 
                 elif opt == '--sensitive':
                     for line in open(arg):
-                        sensitive.append(line)
+                        sensitive.append(line.strip())
 
                 elif opt == '--random':
                     if arg == 'True' or arg == 'true':
@@ -116,7 +114,7 @@ def main(argv):
 
                     for url in links:
                         for cookie_key in session.cookies.keys():
-                            inputs.append(CookieInput(url, cookie_key))
+                            inputs.append(CookieInput(url, cookie_key, session))
 
                     for url in url_parameters:
                         for parameter_key in url_parameters[url]:
@@ -147,7 +145,7 @@ def authenticate_dvwa(url, session):
     if user_token_tag is not None and user_token_tag.get('value') is not None:
         payload["user_token"] = user_token_tag.get('value')
 
-    #session.cookies['security'] = 'low'
+    session.cookies['security'] = 'low'
     return authenticate(response.url, session, payload)
 
 
@@ -425,19 +423,27 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
 
 
 def test(vectors, inputs, sensitive_words, random, slow):
-    broken_inputs = dict()
-    print(inputs)
-    for i in inputs:
+    if(random):
+        random_index = randrange(0,len(inputs))
+        vector_test(vectors, inputs[random_index], sensitive_words, slow)
+    else:
+        for i in inputs:
+            vector_test(vectors, i, sensitive_words, slow)
+
+def vector_test(vectors, i, sensitive_words, slow):
         for vector in vectors:
+            start = start = int(round(time.time() * 1000))
             response = i.submit(vector)
+            end = start = int(round(time.time() * 1000))
             print('Testing vector \"' + vector + "\" on:\n", i)
             if response.status_code != 200:
                 print("Broken input:", requests.codes[response.status_code])
-                broken_inputs[i] = vector
-            else:
-                for sensitive_word in sensitive_words:
-                    if sensitive_word in response.text:
-                        print("Sensitive data found:\n", str(i) + "\n", sensitive_word)
+            if ((end - start) > slow):
+                print("Slow Response")
+
+            for sensitive_word in sensitive_words:
+                if sensitive_word in response.text:
+                    print("Sensitive data found: Found " + sensitive_word + " in " + str(i))
 
 
 if __name__ == "__main__":
