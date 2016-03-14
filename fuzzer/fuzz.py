@@ -85,7 +85,7 @@ def main(argv):
                 try:
                     session.get(initial_url)
                 except requests.exceptions.RequestException as e:
-                    print ("Bad URL")
+                    print("Bad URL")
                     return
 
                 links, form_inputs, url_parameters, forms = discover(initial_url, common_words, session,
@@ -111,7 +111,6 @@ def main(argv):
                     for url in forms:
                         for form in forms[url]:
                             inputs.append(FormInput(url, form, session))
-
                     for url in links:
                         for cookie_key in session.cookies.keys():
                             inputs.append(CookieInput(url, cookie_key, session))
@@ -190,7 +189,10 @@ def discover(url, common_words, session, ignore_urls=set()):
                                                                    visited_urls=ignore_urls)
     links = set(map(sanitize_url, links))
     if common_words is not None:
-            links.update(discover_guess_links(links, common_words, session))
+        guessed_links, new_form_inputs, new_forms = discover_guess_links(links, common_words, session)
+        links.update(guessed_links)
+        form_inputs.update(new_form_inputs)
+        forms.update(new_forms)
     return links, form_inputs, url_parameters, forms
 
 
@@ -300,26 +302,21 @@ def discover_guess_links(links, common_words, session):
     truncated_urls = set(map(sanitize_url, links))
     generated_urls = generate_links(truncated_urls, common_words)
     good_urls = set()
+    form_inputs = dict()
+    forms = dict()
     for url in generated_urls:
-        status = discover_get_status_code(url, session)
-        if status == 200:
+        response = session.get(url)
+        if response.status_code == 200:
             print("Sucessfully Guessed: " + url)
             good_urls.add(url)
-        elif status == 401 or status == 403:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            form_inputs[url] = discover_form_inputs(soup)
+            forms_on_page = soup.find_all('form')
+            if len(forms_on_page) > 0:
+                forms[url] = set(forms_on_page)
+        elif response.status_code == 401 or response.status_code == 403:
             generated_urls.add(generate_links([url], common_words))
-    return good_urls
-
-
-def discover_get_status_code(link, session):
-    """
-    tests the url to see if it is valid
-    if the status code is 200, then it is a valid url
-    :param link: url to test
-    :param session: the current request session
-    :return:
-    """
-    r = session.get(link)
-    return r.status_code
+    return good_urls, form_inputs, forms
 
 
 def generate_links(links, common_words):
@@ -423,33 +420,52 @@ def discover_print_output(urls, inputs, cookies, url_parameters):
 
 
 def test(vectors, inputs, sensitive_words, random, slow):
-    if(random):
-        random_index = randrange(0,len(inputs))
+    """
+    tests all vectors against all inputs
+    :param vectors: list of vectors to test against inputs
+    :param inputs: dictionary of url->inputs
+    :param sensitive_words: list of words that should not be displayed to the user of the webapp
+    :param random: True: pick a random input and a random vector to test
+    :param slow: timeout in millis that is considered slow response time
+    :return:
+    """
+    if random:
+        random_index = randrange(0, len(inputs))
         vector_test(vectors, inputs[random_index], sensitive_words, slow)
     else:
         for i in inputs:
             vector_test(vectors, i, sensitive_words, slow)
 
+
 def vector_test(vectors, i, sensitive_words, slow):
-        for vector in vectors:
-            print('Testing vector \"' + vector + "\" on:\n", i)
-            start = start = int(round(time.time() * 1000))
-            response = i.submit(vector)
-            end = start = int(round(time.time() * 1000))
-            if response.status_code != 200:
-                print("Broken input:", requests.codes[response.status_code])
-            if ((end - start) > slow):
-                print("Slow Response")
+    """
+    Tests an input against a list of vectors
+    :param vectors: list of items to test inputs against
+    :param i: list of inputs
+    :param sensitive_words: words that should not be displayed to the user of webapp
+    :param slow: the timeout in millis that is considered slow response time
+    :return:
+    """
+    for vector in vectors:
+        print('Testing vector \"' + vector + "\" on:\n\t" + str(i))
+        start = start = int(round(time.time() * 1000))
+        response = i.submit(vector)
+        end = start = int(round(time.time() * 1000))
+        if response.status_code != 200:
+            print("Broken input:", requests.codes[response.status_code])
+        if (end - start) > slow:
+            print("Slow Response")
 
-            for sensitive_word in sensitive_words:
-                if sensitive_word in response.text:
-                    print("Sensitive data found: Found " + sensitive_word + " in " + str(i))
+        for sensitive_word in sensitive_words:
+            if sensitive_word in response.text:
+                print("\tSensitive data found: Found " + sensitive_word + " in " + str(i))
 
-            sanitization_characters = {"<", ">", "'", '"', "`"}
+        sanitization_characters = {"<", ">", "'", '"', "`"}
 
-            if(set(vector) & sanitization_characters):
-               if vector in response.text:
-                   print("\tThe vector: " + vector  + " may not be sanitized")
+        if set(vector) & sanitization_characters:
+            if vector in response.text:
+                print("\tThe vector: " + vector + " may not be sanitized")
+        print("")
 
 
 if __name__ == "__main__":

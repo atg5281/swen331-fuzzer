@@ -27,9 +27,7 @@ class FormInput:
             return self.session.post(submit_url, data=payload, allow_redirects=True)
 
     def __str__(self):
-        copy_of_form = self.form.__copy__()
-        copy_of_form.clear()
-        return self.name + ":\n\t" + str(self.url) + "\n\t" + str(copy_of_form) + "\n"
+        return self.name + " at " + str(self.url)
 
 
 class CookieInput:
