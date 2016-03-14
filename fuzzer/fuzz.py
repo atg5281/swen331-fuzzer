@@ -74,7 +74,7 @@ def main(argv):
 
                 elif opt == '--sensitive':
                     for line in open(arg):
-                        sensitive.append(line)
+                        sensitive.append(line.strip())
 
                 elif opt == '--random':
                     if arg == 'True' or arg == 'true':
@@ -432,7 +432,7 @@ def test(vectors, inputs, sensitive_words, random, slow):
 
             for sensitive_word in sensitive_words:
                 if sensitive_word in response.text:
-                    print("Sensitive data found:\n", i + "\n", sensitive_word)
+                    print("Sensitive data found: Found " + sensitive_word + " in " + str(i))
 
 
 if __name__ == "__main__":
