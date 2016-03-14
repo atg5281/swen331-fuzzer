@@ -445,6 +445,12 @@ def vector_test(vectors, i, sensitive_words, slow):
                 if sensitive_word in response.text:
                     print("Sensitive data found: Found " + sensitive_word + " in " + str(i))
 
+            sanitization_characters = {"<", ">", "'", '"', "`"}
+
+            if(set(vector) & sanitization_characters):
+               if vector in response.text:
+                   print("\tThe vector: " + vector  + " may not be sanitized")
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
