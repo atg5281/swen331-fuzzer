@@ -5,7 +5,7 @@ from inputs import FormInput, CookieInput, URLParameterInput
 import requests
 import sys
 from urllib.parse import urljoin, urlparse, parse_qsl
-
+import time
 
 helpStr = ("COMMANDS:\n"
            "\tdiscover  Output a comprehensive, human-readable list of all discovered inputs to the system."
@@ -115,7 +115,7 @@ def main(argv):
 
                     for url in links:
                         for cookie_key in session.cookies.keys():
-                            inputs.append(CookieInput(url, cookie_key))
+                            inputs.append(CookieInput(url, cookie_key, session))
 
                     for url in url_parameters:
                         for parameter_key in url_parameters[url]:
@@ -420,11 +420,15 @@ def test(vectors, inputs, sensitive_words, random, slow):
     broken_inputs = dict()
     for i in inputs:
         for vector in vectors:
+            start = start = int(round(time.time() * 1000))
             response = i.submit(vector)
+            end = start = int(round(time.time() * 1000))
             print('Testing vector \"' + vector + "\" on:\n", i)
             if response.status_code != 200:
                 print("Broken input:", requests.codes[response.status_code])
                 broken_inputs[i] = vector
+            if ((end - start) > slow):
+                print("Slow Response")
             else:
                 for sensitive_word in sensitive_words:
                     if sensitive_word in response.text:
