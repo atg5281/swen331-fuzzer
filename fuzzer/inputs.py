@@ -1,4 +1,5 @@
 import requests
+from urllib.parse import urljoin
 
 class FormInput:
     def __init__(self, url, form, session):
@@ -14,11 +15,16 @@ class FormInput:
                 if tag['type'] != 'submit':
                     payload[tag['name']] = form_input
                 else:
-                    payload[tag['type']] = tag['value']
+                    payload[tag['value']] = tag['value']
+
+        submit_url = self.url
+        if self.form.has_attr('action'):
+            submit_url = urljoin(self.url, self.form['action'])
+
         if self.form['method'].lower() == 'get':
-            return self.session.get(self.url, data=payload, allow_redirects=True)
+            return self.session.get(submit_url, params=payload, allow_redirects=True)
         elif self.form['method'].lower() == 'post':
-            return self.session.post(self.url, data=payload, allow_redirects=True)
+            return self.session.post(submit_url, data=payload, allow_redirects=True)
 
     def __str__(self):
         copy_of_form = self.form.__copy__()

@@ -432,10 +432,10 @@ def test(vectors, inputs, sensitive_words, random, slow):
 
 def vector_test(vectors, i, sensitive_words, slow):
         for vector in vectors:
+            print('Testing vector \"' + vector + "\" on:\n", i)
             start = start = int(round(time.time() * 1000))
             response = i.submit(vector)
             end = start = int(round(time.time() * 1000))
-            print('Testing vector \"' + vector + "\" on:\n", i)
             if response.status_code != 200:
                 print("Broken input:", requests.codes[response.status_code])
             if ((end - start) > slow):
